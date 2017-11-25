@@ -254,7 +254,7 @@
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-war-plugin</artifactId> <!-- https://repo.maven.apache.org/maven2/org/apache/maven/plugins/maven-war-plugin/ -->
-						<version>2.6</version>
+						<version>3.0.0</version>
 						<configuration>
 							<webXml>${basedir}/target/web.xml</webXml>
 						</configuration>
