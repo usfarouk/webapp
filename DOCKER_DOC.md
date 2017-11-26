@@ -10,3 +10,9 @@
 
 
 # NB:Using docker inside a project require additionnal disk space to hold images.
+
+#To test that docker build is working type the following command and sure the command end up well.
+
+$mvn install
+#if the command succeed(the image container the application was build), then you can show list of images by typing:
+$docker images
