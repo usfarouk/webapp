@@ -6,14 +6,15 @@ import ai.elimu.model.content.Allophone;
 import ai.elimu.model.content.Emoji;
 import ai.elimu.model.content.Letter;
 import ai.elimu.model.content.Number;
-import ai.elimu.model.content.StoryBook;
 import ai.elimu.model.content.Word;
-import ai.elimu.model.enums.ContentLicense;
-import ai.elimu.model.enums.GradeLevel;
+import ai.elimu.model.enums.ReadingLevel;
 import ai.elimu.model.enums.Language;
 import ai.elimu.model.enums.content.SpellingConsistency;
 import ai.elimu.model.enums.content.WordType;
 import ai.elimu.model.enums.content.allophone.SoundType;
+import ai.elimu.model.gson.content.StoryBookChapterGson;
+import ai.elimu.model.gson.content.StoryBookGson;
+import ai.elimu.model.gson.content.StoryBookParagraphGson;
 import ai.elimu.util.ConfigHelper;
 import ai.elimu.web.content.allophone.AllophoneCsvExportController;
 import ai.elimu.web.content.emoji.EmojiCsvExportController;
@@ -22,15 +23,22 @@ import ai.elimu.web.content.number.NumberCsvExportController;
 import ai.elimu.web.content.storybook.StoryBookCsvExportController;
 import ai.elimu.web.content.word.WordCsvExportController;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Scanner;
 import java.util.Set;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class CsvContentExtractionHelper {
     
@@ -42,83 +50,50 @@ public class CsvContentExtractionHelper {
     public static List<Allophone> getAllophonesFromCsvBackup(File csvFile) {
         logger.info("getAllophonesFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
-        
         List<Allophone> allophones = new ArrayList<>();
         
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowNumber = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
-                
-                rowNumber++;
-                
-                if (rowNumber == 1) {
-                    // Skip the header row
-                    continue;
-                }
-                
-                // Expected header format: id,value_ipa,value_sampa,audio_id,diacritic,sound_type,usage_count
-                // Expected row format: 1,"dʒ","dZ",null,false,null,-1
-                
-                // Prevent "dʒ" from being stored as ""dʒ""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "value_ipa"
-                String valueIpa = String.valueOf(rowValues[1]);
-                logger.info("valueIpa: \"" + valueIpa + "\"");
-                
-                // "value_sampa"
-                String valueSampa = String.valueOf(rowValues[2]);
-                logger.info("valueSampa: \"" + valueSampa + "\"");
-                
-                // "audio_id"
-                Long audioId = null;
-                if (!"null".equals(rowValues[3])) {
-                    audioId = Long.valueOf(rowValues[3]);
-                }
-                logger.info("audioId: " + audioId);
-                
-                // "diacritic"
-                boolean diacritic = Boolean.valueOf(rowValues[4]);
-                logger.info("diacritic: " + diacritic);
-                
-                // "sound_type"
-                SoundType soundType = null;
-                if (!"null".equals(rowValues[5])) {
-                    soundType = SoundType.valueOf(rowValues[5]);
-                }
-                logger.info("soundType: " + soundType);
-                
-                // "usage_count"
-                int usageCount = Integer.valueOf(rowValues[6]);
-                logger.info("usageCount: " + usageCount);
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id", 
+                            "value_ipa", 
+                            "value_sampa", 
+                            "audio_id", 
+                            "diacritic", 
+                            "sound_type", 
+                            "usage_count"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
                 Allophone allophone = new Allophone();
-                // allophone.setId(id); // TODO: enable lookup of Allophones by ID
+                
+                String valueIpa = csvRecord.get("value_ipa");
                 allophone.setValueIpa(valueIpa);
+                
+                String valueSampa = csvRecord.get("value_sampa");
                 allophone.setValueSampa(valueSampa);
-                // allophone.setAudio(); // TODO: enable lookup of Audios by ID
+                
+                boolean diacritic = Boolean.valueOf(csvRecord.get("diacritic"));
                 allophone.setDiacritic(diacritic);
-                allophone.setSoundType(soundType);
+                
+                if (StringUtils.isNotBlank(csvRecord.get("sound_type"))) {
+                    SoundType soundType = SoundType.valueOf(csvRecord.get("sound_type"));
+                    allophone.setSoundType(soundType);
+                }
+                
+                Integer usageCount = Integer.valueOf(csvRecord.get("usage_count"));
                 allophone.setUsageCount(usageCount);
                 
                 allophones.add(allophone);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
         return allophones;
@@ -130,92 +105,57 @@ public class CsvContentExtractionHelper {
     public static List<Letter> getLettersFromCsvBackup(File csvFile, AllophoneDao allophoneDao) {
         logger.info("getLettersFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
-        
         List<Letter> letters = new ArrayList<>();
         
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowNumber = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id", 
+                            "text", 
+                            "allophone_ids", 
+                            "allophone_values_ipa", 
+                            "diacritic", 
+                            "usage_count"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
-                rowNumber++;
+                Letter letter = new Letter();
                 
-                if (rowNumber == 1) {
-                    // Skip the header row
-                    continue;
-                }
+                String text = csvRecord.get("text");
+                letter.setText(text);
                 
-                // Expected header format: id,text,allophone_values_ipa,allophone_ids,usage_count
-                // Expected row format: 1,"অ",[ɔ],[4],-1
+                JSONArray allophoneIdsJsonArray = new JSONArray(csvRecord.get("allophone_ids"));
+                logger.info("allophoneIdsJsonArray: " + allophoneIdsJsonArray);
                 
-                // Prevent "অ" from being stored as ""অ""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
-                
-                // Prevent "java.lang.NumberFormatException: For input string: " 6]""
-                // TODO: find more robust solution
-                row = row.replace(", ", "|");
-                logger.info("row (after removing ', '): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "text"
-                String text = String.valueOf(rowValues[1]);
-                logger.info("text: \"" + text + "\"");
-                
-                // "allophone_values_ipa"
-                String allophoneValuesIpa = String.valueOf(rowValues[2]);
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                allophoneValuesIpa = allophoneValuesIpa.replace("[", "");
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                allophoneValuesIpa = allophoneValuesIpa.replace("]", "");
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                String[] allophoneValuesIpaArray = allophoneValuesIpa.split("\\|");
-                logger.info("Arrays.toString(allophoneValuesIpaArray): " + Arrays.toString(allophoneValuesIpaArray));
-                
+                JSONArray allophoneValuesIpaJsonArray = new JSONArray(csvRecord.get("allophone_values_ipa"));
+                logger.info("allophoneValuesIpaJsonArray: " + allophoneValuesIpaJsonArray);
                 List<Allophone> allophones = new ArrayList<>();
                 Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
-                for (String allophoneValueIpa : allophoneValuesIpaArray) {
+                for (int i = 0; i < allophoneValuesIpaJsonArray.length(); i++) {
+                    String allophoneValueIpa = allophoneValuesIpaJsonArray.getString(i);
                     logger.info("Looking up Allophone with IPA value /" + allophoneValueIpa + "/");
                     Allophone allophone = allophoneDao.readByValueIpa(language, allophoneValueIpa);
                     logger.info("allophone.getId(): \"" + allophone.getId() + "\"");
                     allophones.add(allophone);
                 }
-                
-                // "allophone_ids"
-                String allophoneIds = String.valueOf(rowValues[3]);
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                allophoneIds = allophoneIds.replace("[", "");
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                allophoneIds = allophoneIds.replace("]", "");
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                String[] allophoneIdsArray = allophoneIds.split("\\|");
-                logger.info("Arrays.toString(allophoneIdsArray): " + Arrays.toString(allophoneIdsArray));
-                
-                // "usage_count"
-                int usageCount = Integer.valueOf(rowValues[4]);
-                logger.info("usageCount: " + usageCount);
-                
-                Letter letter = new Letter();
-                // letter.setId(id); // TODO: to enable later lookup of the same Letter by its ID
-                letter.setText(text);
                 letter.setAllophones(allophones);
+                
+                boolean diacritic = Boolean.valueOf(csvRecord.get("diacritic"));
+                letter.setDiacritic(diacritic);
+                
+                Integer usageCount = Integer.valueOf(csvRecord.get("usage_count"));
                 letter.setUsageCount(usageCount);
                 
                 letters.add(letter);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
         return letters;
@@ -227,107 +167,65 @@ public class CsvContentExtractionHelper {
     public static List<Word> getWordsFromCsvBackup(File csvFile, AllophoneDao allophoneDao) {
         logger.info("getWordsFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
-        
         List<Word> words = new ArrayList<>();
         
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowNumber = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id", 
+                            "text", 
+                            "allophone_ids", 
+                            "allophone_values_ipa", 
+                            "usage_count",
+                            "word_type",
+                            "spelling_consistency"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
-                rowNumber++;
+                Word word = new Word();
                 
-                if (rowNumber == 1) {
-                    // Skip the header row
-                    continue;
-                }
+                String text = csvRecord.get("text");
+                word.setText(text);
                 
-                // Expected header format: id,text,allophone_values_ipa,allophone_ids,usage_count,word_type,spelling_consistency
-                // Expected row format: 7,"anim",[ɑ, n, ɪ, m],[28, 14, 36, 13],0,null,null
+                JSONArray allophoneIdsJsonArray = new JSONArray(csvRecord.get("allophone_ids"));
+                logger.info("allophoneIdsJsonArray: " + allophoneIdsJsonArray);
                 
-                // Prevent "anim" from being stored as ""anim""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
-                
-                // Prevent "java.lang.NumberFormatException: For input string: " 6]""
-                // TODO: find more robust solution
-                row = row.replace(", ", "|");
-                logger.info("row (after removing ', '): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "text"
-                String text = String.valueOf(rowValues[1]);
-                logger.info("text: \"" + text + "\"");
-                
-                // "allophone_values_ipa"
-                String allophoneValuesIpa = String.valueOf(rowValues[2]);
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                allophoneValuesIpa = allophoneValuesIpa.replace("[", "");
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                allophoneValuesIpa = allophoneValuesIpa.replace("]", "");
-                logger.info("allophoneValuesIpa: \"" + allophoneValuesIpa + "\"");
-                String[] allophoneValuesIpaArray = allophoneValuesIpa.split("\\|");
-                logger.info("Arrays.toString(allophoneValuesIpaArray): " + Arrays.toString(allophoneValuesIpaArray));
-                
+                JSONArray allophoneValuesIpaJsonArray = new JSONArray(csvRecord.get("allophone_values_ipa"));
+                logger.info("allophoneValuesIpaJsonArray: " + allophoneValuesIpaJsonArray);
                 List<Allophone> allophones = new ArrayList<>();
                 Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
-                for (String allophoneValueIpa : allophoneValuesIpaArray) {
+                for (int i = 0; i < allophoneValuesIpaJsonArray.length(); i++) {
+                    String allophoneValueIpa = allophoneValuesIpaJsonArray.getString(i);
                     logger.info("Looking up Allophone with IPA value /" + allophoneValueIpa + "/");
                     Allophone allophone = allophoneDao.readByValueIpa(language, allophoneValueIpa);
                     logger.info("allophone.getId(): \"" + allophone.getId() + "\"");
                     allophones.add(allophone);
                 }
-                
-                // "allophone_ids"
-                String allophoneIds = String.valueOf(rowValues[4]);
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                allophoneIds = allophoneIds.replace("[", "");
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                allophoneIds = allophoneIds.replace("]", "");
-                logger.info("allophoneIds: \"" + allophoneIds + "\"");
-                String[] allophoneIdsArray = allophoneIds.split("\\|");
-                logger.info("Arrays.toString(allophoneIdsArray): " + Arrays.toString(allophoneIdsArray));
-                
-                // "usage_count"
-                int usageCount = Integer.valueOf(rowValues[4]);
-                logger.info("usageCount: " + usageCount);
-                
-                // "word_type"
-                WordType wordType = null;
-                if (!"null".equals(rowValues[5])) {
-                    wordType = WordType.valueOf(rowValues[5]);
-                }
-                logger.info("wordType: " + wordType);
-                
-                // spelling_consistency
-                SpellingConsistency spellingConsistency = null;
-                if (!"null".equals(rowValues[6])) {
-                    spellingConsistency = SpellingConsistency.valueOf(rowValues[6]);
-                }
-                logger.info("spellingConsistency: " + spellingConsistency);
-                
-                Word word = new Word();
-                // word.setId(id); // TODO: to enable later lookup of the same Word by its ID
-                word.setText(text);
                 word.setAllophones(allophones);
+                
+                Integer usageCount = Integer.valueOf(csvRecord.get("usage_count"));
                 word.setUsageCount(usageCount);
-                word.setWordType(wordType);
-                word.setSpellingConsistency(spellingConsistency);
+                
+                if (StringUtils.isNotBlank(csvRecord.get("word_type"))) {
+                    WordType wordType = WordType.valueOf(csvRecord.get("word_type"));
+                    word.setWordType(wordType);
+                }
+                
+                if (StringUtils.isNotBlank(csvRecord.get("spelling_consistency"))) {
+                    SpellingConsistency spellingConsistency = SpellingConsistency.valueOf(csvRecord.get("spelling_consistency"));
+                    word.setSpellingConsistency(spellingConsistency);
+                }
+                
                 words.add(word);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
         return words;
@@ -339,94 +237,54 @@ public class CsvContentExtractionHelper {
     public static List<Number> getNumbersFromCsvBackup(File csvFile, WordDao wordDao) {
         logger.info("getNumbersFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
-        
         List<Number> numbers = new ArrayList<>();
         
+        Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
+        
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowNumber = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id", 
+                            "value", 
+                            "symbol", 
+                            "word_ids", 
+                            "word_texts"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
-                rowNumber++;
+                Number number = new Number();
                 
-                if (rowNumber == 1) {
-                    // Skip the header row
-                    continue;
-                }
+                Integer value = Integer.valueOf(csvRecord.get("value"));
+                number.setValue(value);
                 
-                // Expected header format: id,value,symbol,word_texts,word_ids
-                // Expected row format: 1,0,"null",["zero"],[1]
+                String symbol = csvRecord.get("symbol");
+                number.setSymbol(symbol);
                 
-                // Prevent "null" from being stored as ""null""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
+                JSONArray wordIdsJsonArray = new JSONArray(csvRecord.get("word_ids"));
+                logger.info("wordIdsJsonArray: " + wordIdsJsonArray);
                 
-                // Prevent "java.lang.NumberFormatException: For input string: " 6]""
-                // TODO: find more robust solution
-                row = row.replace(", ", "|");
-                logger.info("row (after removing ', '): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "value"
-                Integer value = Integer.valueOf(rowValues[1]);
-                logger.info("value: " + value);
-                
-                // "symbol"
-                String symbol = null;
-                if (!"null".equals(rowValues[2])) {
-                    symbol = String.valueOf(rowValues[2]);
-                }
-                logger.info("symbol: \"" + symbol + "\"");
-                
-                // "word_texts"
-                String wordTexts = String.valueOf(rowValues[3]);
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                wordTexts = wordTexts.replace("[", "");
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                wordTexts = wordTexts.replace("]", "");
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                String[] wordTextsArray = wordTexts.split("\\|");
-                logger.info("Arrays.toString(wordTextsArray): " + Arrays.toString(wordTextsArray));
-                        
+                JSONArray wordTextsJsonArray = new JSONArray(csvRecord.get("word_texts"));
+                logger.info("wordTextsJsonArray: " + wordTextsJsonArray);
                 List<Word> words = new ArrayList<>();
-                Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
-                for (String wordText : wordTextsArray) {
-                    logger.info("Looking up Word with text \"" + wordText + "\"");
+                for (int i = 0; i < wordTextsJsonArray.length(); i++) {
+                    String wordText = wordTextsJsonArray.getString(i);
+                    logger.info("Looking up Word with text /" + wordText + "/");
                     Word word = wordDao.readByText(language, wordText);
                     logger.info("word.getId(): \"" + word.getId() + "\"");
                     words.add(word);
                 }
-                
-                // "word_ids"
-                String wordIds = String.valueOf(rowValues[4]);
-                logger.info("wordIds: \"" + wordIds + "\"");
-                wordIds = wordIds.replace("[", "");
-                logger.info("wordIds: \"" + wordIds + "\"");
-                wordIds = wordIds.replace("]", "");
-                logger.info("wordIds: \"" + wordIds + "\"");
-                String[] wordIdsArray = wordIds.split("\\|");
-                logger.info("Arrays.toString(wordIdsArray): " + Arrays.toString(wordIdsArray));
-                
-                Number number = new Number();
-                // number.setId(id); // TODO: to enable later lookup of the same Number by its ID
-                number.setValue(value);
-                number.setSymbol(symbol);
                 number.setWords(words);
+                
                 numbers.add(number);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
         return numbers;
@@ -438,97 +296,58 @@ public class CsvContentExtractionHelper {
     public static List<Emoji> getEmojisFromCsvBackup(File csvFile, WordDao wordDao) {
         logger.info("getEmojisFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
-        
         List<Emoji> emojis = new ArrayList<>();
         
+        Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
+        
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowEmoji = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
-                
-                rowEmoji++;
-                
-                if (rowEmoji == 1) {
-                    // Skip the header row
-                    continue;
-                }
-                
-                // Expected header format: id,glyph,unicode_version,unicode_emoji_version,word_texts,word_ids
-                // Expected row format: 10,✋,6.0,1.0,[],[]
-                
-                // Prevent "text" from being stored as ""text""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
-                
-                // Prevent "java.lang.EmojiFormatException: For input string: " 6]""
-                // TODO: find more robust solution
-                row = row.replace(", ", "|");
-                logger.info("row (after removing ', '): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "glyph"
-                String glyph = String.valueOf(rowValues[1]);
-                logger.info("glyph: " + glyph);
-                
-                // "unicode_version"
-                Double unicodeVersion = Double.valueOf(rowValues[2]);
-                logger.info("unicodeVersion: " + unicodeVersion);
-                
-                // "unicode_emoji_version"
-                Double unicodeEmojiVersion = Double.valueOf(rowValues[3]);
-                logger.info("unicodeEmojiVersion: " + unicodeEmojiVersion);     
-                
-                // "word_texts"
-                String wordTexts = String.valueOf(rowValues[4]);
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                wordTexts = wordTexts.replace("[", "");
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                wordTexts = wordTexts.replace("]", "");
-                logger.info("wordTexts: \"" + wordTexts + "\"");
-                String[] wordTextsArray = wordTexts.split("\\|");
-                logger.info("Arrays.toString(wordTextsArray): " + Arrays.toString(wordTextsArray));
-                Set<Word> words = new HashSet<>();
-                if (StringUtils.isNotBlank(wordTexts)) {
-                    Language language = Language.valueOf(ConfigHelper.getProperty("content.language"));
-                    for (String wordText : wordTextsArray) {
-                        logger.info("Looking up Word with text \"" + wordText + "\"");
-                        Word word = wordDao.readByText(language, wordText);
-                        logger.info("word.getId(): \"" + word.getId() + "\"");
-                        words.add(word);
-                    }
-                }
-                
-                // "word_ids"
-                String wordIds = String.valueOf(rowValues[5]);
-                logger.info("wordIds: \"" + wordIds + "\"");
-                wordIds = wordIds.replace("[", "");
-                logger.info("wordIds: \"" + wordIds + "\"");
-                wordIds = wordIds.replace("]", "");
-                logger.info("wordIds: \"" + wordIds + "\"");
-                String[] wordIdsArray = wordIds.split("\\|");
-                logger.info("Arrays.toString(wordIdsArray): " + Arrays.toString(wordIdsArray));
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id",
+                            "glyph",
+                            "unicode_version",
+                            "unicode_emoji_version",
+                            "word_ids",
+                            "word_texts"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
                 Emoji emoji = new Emoji();
-                // emoji.setId(id); // TODO: to enable later lookup of the same Emoji by its ID
+                
+                String glyph = csvRecord.get("glyph");
                 emoji.setGlyph(glyph);
+                
+                Double unicodeVersion = Double.valueOf(csvRecord.get("unicode_version"));
                 emoji.setUnicodeVersion(unicodeVersion);
+                
+                Double unicodeEmojiVersion = Double.valueOf(csvRecord.get("unicode_emoji_version"));
                 emoji.setUnicodeEmojiVersion(unicodeEmojiVersion);
+                
+                JSONArray wordIdsJsonArray = new JSONArray(csvRecord.get("word_ids"));
+                logger.info("wordIdsJsonArray: " + wordIdsJsonArray);
+                
+                JSONArray wordTextsJsonArray = new JSONArray(csvRecord.get("word_texts"));
+                logger.info("wordTextsJsonArray: " + wordTextsJsonArray);
+                Set<Word> words = new HashSet<>();
+                for (int i = 0; i < wordTextsJsonArray.length(); i++) {
+                    String wordText = wordTextsJsonArray.getString(i);
+                    logger.info("Looking up Word with text /" + wordText + "/");
+                    Word word = wordDao.readByText(language, wordText);
+                    logger.info("word.getId(): \"" + word.getId() + "\"");
+                    words.add(word);
+                }
                 emoji.setWords(words);
+                
                 emojis.add(emoji);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
         return emojis;
@@ -536,88 +355,97 @@ public class CsvContentExtractionHelper {
     
     /**
      * For information on how the CSV files were generated, see {@link StoryBookCsvExportController#handleRequest}.
+     * <p />
+     * Also see {@link #getStoryBookChaptersFromCsvBackup}
      */
-    public static List<StoryBook> getStoryBooksFromCsvBackup(File csvFile) {
+    public static List<StoryBookGson> getStoryBooksFromCsvBackup(File csvFile) {
         logger.info("getStoryBooksFromCsvBackup");
         
-        logger.info("csvFile: " + csvFile);
+        List<StoryBookGson> storyBookGsons = new ArrayList<>();
         
-        List<StoryBook> storyBooks = new ArrayList<>();
-        
+        Path csvFilePath = Paths.get(csvFile.toURI());
+        logger.info("csvFilePath: " + csvFilePath);
         try {
-            Scanner scanner = new Scanner(csvFile);
-            int rowStoryBook = 0;
-            while (scanner.hasNextLine()) {
-                String row = scanner.nextLine();
-                logger.info("row: " + row);
+            Reader reader = Files.newBufferedReader(csvFilePath);
+            CSVFormat csvFormat = CSVFormat.DEFAULT
+                    .withHeader(
+                            "id",
+                            "title",
+                            "description",
+                            "content_license",
+                            "attribution_url",
+                            "reading_level",
+                            "cover_image_id",
+                            "chapters"
+                    )
+                    .withSkipHeaderRecord();
+            CSVParser csvParser = new CSVParser(reader, csvFormat);
+            for (CSVRecord csvRecord : csvParser) {
+                logger.info("csvRecord: " + csvRecord);
                 
-                rowStoryBook++;
+                // Convert from CSV to GSON
                 
-                if (rowStoryBook == 1) {
-                    // Skip the header row
-                    continue;
+                StoryBookGson storyBookGson = new StoryBookGson();
+                
+                String title = csvRecord.get("title");
+                storyBookGson.setTitle(title);
+                
+                String description = csvRecord.get("description");
+                storyBookGson.setDescription(description);
+                
+//                if (StringUtils.isNotBlank(csvRecord.get("content_license"))) {
+//                    ContentLicense contentLicense = ContentLicense.valueOf(csvRecord.get("content_license"));
+//                    storyBookGson.setContentLicense(contentLicense);
+//                }
+                
+                String attributionUrl = csvRecord.get("attribution_url");
+                storyBookGson.setAttributionUrl(attributionUrl);
+                
+                if (StringUtils.isNotBlank(csvRecord.get("reading_level"))) {
+                    ReadingLevel readingLevel = ReadingLevel.valueOf(csvRecord.get("reading_level"));
+                    storyBookGson.setReadingLevel(readingLevel);
                 }
                 
-                // Expected header format: id,description,description,content_license,attribution_url,grade_level
-                // Expected row format: 6,"Ang Aming Pamilya","Anong nangyayari sa tahanan ni Dany? Bakit abala ang lahat?",CREATIVE_COMMONS_CC_BY,"https://reader.letsreadasia.org/book/5eb963ec-4692-4224-8bd6-0b15cfd9f6c0",LEVEL1
+                // TODO: set cover image
                 
-                // Prevent text from being stored as ""text""
-                // TODO: find more robust solution (e.g. by using CSV parser library or JSON array parsing)
-                row = row.replace("\"", "");
-                logger.info("row (after removing '\"'): " + row);
-                
-                // Prevent "java.lang.StoryBookFormatException: For input string: " 6]""
-                // TODO: find more robust solution
-                row = row.replace(", ", "|");
-                logger.info("row (after removing ', '): " + row);
-                
-                String[] rowValues = row.split(",");
-                logger.info("rowValues: " + Arrays.toString(rowValues));
-                
-                // "id"
-                Long id = Long.valueOf(rowValues[0]);
-                logger.info("id: " + id);
-                
-                // "description"
-                String title = String.valueOf(rowValues[1]);
-                logger.info("title: " + title);
-                
-                // "description"
-                String description = String.valueOf(rowValues[2]);
-                logger.info("description: " + description);
-                
-                // content_license
-                ContentLicense contentLicense = null;
-                if (!"null".equals(rowValues[3])) {
-                    contentLicense = ContentLicense.valueOf(rowValues[3]);
+                List<StoryBookChapterGson> storyBookChapterGsons = new ArrayList<>();
+                JSONArray chaptersJsonArray = new JSONArray(csvRecord.get("chapters"));
+                logger.info("chaptersJsonArray: " + chaptersJsonArray);
+                for (int i = 0; i < chaptersJsonArray.length(); i++) {
+                    JSONObject chapterJsonObject = chaptersJsonArray.getJSONObject(i);
+                    logger.info("chapterJsonObject: " + chapterJsonObject);
+                    
+                    StoryBookChapterGson storyBookChapterGson = new StoryBookChapterGson();
+                    // storyBookChapterGson.setStoryBook();
+                    storyBookChapterGson.setSortOrder(chapterJsonObject.getInt("sortOrder"));
+                    
+                    List<StoryBookParagraphGson> storyBookParagraphGsons = new ArrayList<>();
+                    JSONArray paragraphsJsonArray = chapterJsonObject.getJSONArray("storyBookParagraphs");
+                    logger.info("paragraphsJsonArray: " + paragraphsJsonArray);
+                    for (int j = 0; j < paragraphsJsonArray.length(); j++) {
+                        JSONObject paragraphJsonObject = paragraphsJsonArray.getJSONObject(j);
+                        logger.info("paragraphJsonObject: " + paragraphJsonObject);
+
+                        StoryBookParagraphGson storyBookParagraphGson = new StoryBookParagraphGson();
+                        // storyBookParagraphGson.setStoryBookChapter();
+                        storyBookParagraphGson.setSortOrder(paragraphJsonObject.getInt("sortOrder"));
+                        storyBookParagraphGson.setOriginalText(paragraphJsonObject.getString("originalText"));
+                        // TODO: setWords
+                        
+                        storyBookParagraphGsons.add(storyBookParagraphGson);
+                    }
+                    storyBookChapterGson.setStoryBookParagraphs(storyBookParagraphGsons);
+                    
+                    storyBookChapterGsons.add(storyBookChapterGson);
                 }
-                logger.info("contentLicense: " + contentLicense);
+                storyBookGson.setStoryBookChapters(storyBookChapterGsons);
                 
-                // attribution_url
-                String attributionUrl = String.valueOf(rowValues[4]);
-                logger.info("attributionUrl: \"" + attributionUrl + "\"");
-                
-                // grade_level
-                GradeLevel gradeLevel = null;
-                if (!"null".equals(rowValues[5])) {
-                    gradeLevel = GradeLevel.valueOf(rowValues[5]);
-                }
-                logger.info("gradeLevel: " + gradeLevel);
-                
-                StoryBook storyBook = new StoryBook();
-                // storyBook.setId(id); // TODO: to enable later lookup of the same StoryBook by its ID
-                storyBook.setTitle(title);
-                storyBook.setDescription(description);
-                storyBook.setContentLicense(contentLicense);
-                storyBook.setAttributionUrl(attributionUrl);
-                storyBook.setGradeLevel(gradeLevel);
-                storyBooks.add(storyBook);
+                storyBookGsons.add(storyBookGson);
             }
-            scanner.close();
-        } catch (FileNotFoundException ex) {
-            logger.error(null, ex);
+        } catch (IOException ex) {
+            logger.error(ex);
         }
         
-        return storyBooks;
+        return storyBookGsons;
     }
 }

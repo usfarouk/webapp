@@ -3,27 +3,29 @@ package ai.elimu.rest.v1;
 import java.util.ArrayList;
 import java.util.List;
 import ai.elimu.model.admin.Application;
-import ai.elimu.model.Device;
 import ai.elimu.model.content.Number;
 import ai.elimu.model.content.Word;
 import ai.elimu.model.admin.ApplicationVersion;
 import ai.elimu.model.content.Allophone;
+import ai.elimu.model.content.Emoji;
 import ai.elimu.model.content.Letter;
 import ai.elimu.model.content.StoryBook;
 import ai.elimu.model.content.StoryBookChapter;
+import ai.elimu.model.content.StoryBookParagraph;
 import ai.elimu.model.content.Syllable;
 import ai.elimu.model.content.multimedia.Audio;
 import ai.elimu.model.content.multimedia.Image;
 import ai.elimu.model.content.multimedia.Video;
-import ai.elimu.model.gson.DeviceGson;
 import ai.elimu.model.gson.content.NumberGson;
 import ai.elimu.model.gson.content.WordGson;
 import ai.elimu.model.gson.admin.ApplicationGson;
 import ai.elimu.model.gson.admin.ApplicationVersionGson;
 import ai.elimu.model.gson.content.AllophoneGson;
+import ai.elimu.model.gson.content.EmojiGson;
 import ai.elimu.model.gson.content.LetterGson;
 import ai.elimu.model.gson.content.StoryBookChapterGson;
 import ai.elimu.model.gson.content.StoryBookGson;
+import ai.elimu.model.gson.content.StoryBookParagraphGson;
 import ai.elimu.model.gson.content.SyllableGson;
 import ai.elimu.model.gson.content.multimedia.AudioGson;
 import ai.elimu.model.gson.content.multimedia.ImageGson;
@@ -34,75 +36,6 @@ import ai.elimu.model.gson.content.multimedia.VideoGson;
  * JSON and transferred to Android applications that are connecting via the REST API.
  */
 public class JavaToGsonConverter {
-    
-    public static AudioGson getAudioGson(Audio audio) {
-        if (audio == null) {
-            return null;
-        } else {
-            AudioGson audioGson = new AudioGson();
-            
-            audioGson.setId(audio.getId());
-            audioGson.setLanguage(audio.getLanguage());
-            audioGson.setTimeLastUpdate(audio.getTimeLastUpdate());
-            audioGson.setRevisionNumber(audio.getRevisionNumber());
-            audioGson.setContentStatus(audio.getContentStatus());
-            
-            audioGson.setDownloadUrl("/audio/" + audio.getId() + "." + audio.getAudioFormat().toString().toLowerCase());
-            audioGson.setDownloadSize(audio.getBytes().length / 1024);
-            audioGson.setContentType(audio.getContentType());
-            audioGson.setLiteracySkills(audio.getLiteracySkills());
-            audioGson.setNumeracySkills(audio.getNumeracySkills());
-            
-            List<LetterGson> letters = new ArrayList<>();
-            for (Letter letter : audio.getLetters()) {
-                LetterGson letterGson = getLetterGson(letter);
-                letters.add(letterGson);
-            }
-            audioGson.setLetters(letters);
-            
-            List<NumberGson> numbers = new ArrayList<>();
-            for (Number number : audio.getNumbers()) {
-                NumberGson numberGson = getNumberGson(number);
-                numbers.add(numberGson);
-            }
-            audioGson.setNumbers(numbers);
-            
-            List<WordGson> words = new ArrayList<>();
-            for (Word word : audio.getWords()) {
-                WordGson wordGson = getWordGson(word);
-                words.add(wordGson);
-            }
-            audioGson.setWords(words);
-            
-            audioGson.setTranscription(audio.getTranscription());
-            audioGson.setAudioType(audio.getAudioFormat());
-            
-            return audioGson;
-        }
-    }
-    
-    public static AllophoneGson getAllophoneGson(Allophone allophone) {
-        if (allophone == null) {
-            return null;
-        } else {
-            AllophoneGson allophoneGson = new AllophoneGson();
-            
-            allophoneGson.setId(allophone.getId());
-            allophoneGson.setLanguage(allophone.getLanguage());
-            allophoneGson.setTimeLastUpdate(allophone.getTimeLastUpdate());
-            allophoneGson.setRevisionNumber(allophone.getRevisionNumber());
-            allophoneGson.setContentStatus(allophone.getContentStatus());
-            
-            allophoneGson.setValueIpa(allophone.getValueIpa());
-            allophoneGson.setValueSampa(allophone.getValueSampa());
-            allophoneGson.setAudio(getAudioGson(allophone.getAudio()));
-            allophoneGson.setDiacritic(allophone.isDiacritic());
-            allophoneGson.setSoundType(allophone.getSoundType());
-            allophoneGson.setUsageCount(allophone.getUsageCount());
-            
-            return allophoneGson;
-        }
-    }
     
     public static ApplicationGson getApplicationGson(Application application) {
         if (application == null) {
@@ -140,16 +73,158 @@ public class JavaToGsonConverter {
         }
     }
     
-    public static DeviceGson getDeviceGson(Device device) {
-        if (device == null) {
+    
+    public static AllophoneGson getAllophoneGson(Allophone allophone) {
+        if (allophone == null) {
             return null;
         } else {
-            DeviceGson deviceGson = new DeviceGson();
+            AllophoneGson allophoneGson = new AllophoneGson();
             
-            deviceGson.setId(device.getId());
-            deviceGson.setDeviceId(device.getDeviceId());
+            allophoneGson.setId(allophone.getId());
+            allophoneGson.setLanguage(allophone.getLanguage());
+            allophoneGson.setTimeLastUpdate(allophone.getTimeLastUpdate());
+            allophoneGson.setRevisionNumber(allophone.getRevisionNumber());
+            allophoneGson.setContentStatus(allophone.getContentStatus());
             
-            return deviceGson;
+            allophoneGson.setValueIpa(allophone.getValueIpa());
+            allophoneGson.setValueSampa(allophone.getValueSampa());
+            allophoneGson.setAudio(getAudioGson(allophone.getAudio()));
+            allophoneGson.setDiacritic(allophone.isDiacritic());
+            allophoneGson.setSoundType(allophone.getSoundType());
+            allophoneGson.setUsageCount(allophone.getUsageCount());
+            
+            return allophoneGson;
+        }
+    }
+    
+    public static LetterGson getLetterGson(Letter letter) {
+        if (letter == null) {
+            return null;
+        } else {
+            LetterGson letterGson = new LetterGson();
+            
+            letterGson.setId(letter.getId());
+            letterGson.setLanguage(letter.getLanguage());
+            letterGson.setTimeLastUpdate(letter.getTimeLastUpdate());
+            letterGson.setRevisionNumber(letter.getRevisionNumber());
+            letterGson.setContentStatus(letter.getContentStatus());
+            
+            letterGson.setText(letter.getText());
+            List<AllophoneGson> allophones = new ArrayList<>();
+            for (Allophone allophone : letter.getAllophones()) {
+                AllophoneGson allophoneGson = getAllophoneGson(allophone);
+                allophones.add(allophoneGson);
+            }
+            letterGson.setAllophones(allophones);
+            letterGson.setUsageCount(letter.getUsageCount());
+            
+            return letterGson;
+        }
+    }
+    
+    public static WordGson getWordGson(Word word) {
+        if (word == null) {
+            return null;
+        } else {
+            WordGson wordGson = new WordGson();
+            
+            wordGson.setId(word.getId());
+            wordGson.setLanguage(word.getLanguage());
+            wordGson.setTimeLastUpdate(word.getTimeLastUpdate());
+            wordGson.setRevisionNumber(word.getRevisionNumber());
+            wordGson.setContentStatus(word.getContentStatus());
+            
+            wordGson.setText(word.getText());
+            // TODO: setLetters
+            List<AllophoneGson> allophones = new ArrayList<>();
+            for (Allophone allophone : word.getAllophones()) {
+                AllophoneGson allophoneGson = getAllophoneGson(allophone);
+                allophones.add(allophoneGson);
+            }
+            wordGson.setAllophones(allophones);
+            wordGson.setUsageCount(word.getUsageCount());
+            wordGson.setWordType(word.getWordType());
+            wordGson.setSpellingConsistency(word.getSpellingConsistency());
+            
+            return wordGson;
+        }
+    }
+    
+    public static NumberGson getNumberGson(Number number) {
+        if (number == null) {
+            return null;
+        } else {
+            NumberGson numberGson = new NumberGson();
+            
+            numberGson.setId(number.getId());
+            numberGson.setLanguage(number.getLanguage());
+            numberGson.setTimeLastUpdate(number.getTimeLastUpdate());
+            numberGson.setRevisionNumber(number.getRevisionNumber());
+            numberGson.setContentStatus(number.getContentStatus());
+            
+            numberGson.setValue(number.getValue());
+            numberGson.setSymbol(number.getSymbol());
+            
+            List<WordGson> words = new ArrayList<>();
+            for (Word word : number.getWords()) {
+                WordGson wordGson = getWordGson(word);
+                words.add(wordGson);
+            }
+            numberGson.setWords(words);
+            
+            return numberGson;
+        }
+    }
+    
+    public static SyllableGson getSyllableGson(Syllable syllable) {
+        if (syllable == null) {
+            return null;
+        } else {
+            SyllableGson syllableGson = new SyllableGson();
+            
+            syllableGson.setId(syllable.getId());
+            syllableGson.setLanguage(syllable.getLanguage());
+            syllableGson.setTimeLastUpdate(syllable.getTimeLastUpdate());
+            syllableGson.setRevisionNumber(syllable.getRevisionNumber());
+            syllableGson.setContentStatus(syllable.getContentStatus());
+            
+            syllableGson.setText(syllable.getText());
+            List<AllophoneGson> allophones = new ArrayList<>();
+            for (Allophone allophone : syllable.getAllophones()) {
+                AllophoneGson allophoneGson = getAllophoneGson(allophone);
+                allophones.add(allophoneGson);
+            }
+            syllableGson.setAllophones(allophones);
+            syllableGson.setUsageCount(syllable.getUsageCount());
+            
+            return syllableGson;
+        }
+    }
+    
+    public static EmojiGson getEmojiGson(Emoji emoji) {
+        if (emoji == null) {
+            return null;
+        } else {
+            EmojiGson emojiGson = new EmojiGson();
+            
+            emojiGson.setId(emoji.getId());
+            emojiGson.setLanguage(emoji.getLanguage());
+            emojiGson.setTimeLastUpdate(emoji.getTimeLastUpdate());
+            emojiGson.setRevisionNumber(emoji.getRevisionNumber());
+            emojiGson.setContentStatus(emoji.getContentStatus());
+            
+            emojiGson.setGlyph(emoji.getGlyph());
+            emojiGson.setUnicodeVersion(emoji.getUnicodeVersion());
+            emojiGson.setUnicodeEmojiVersion(emoji.getUnicodeEmojiVersion());
+            
+            List<WordGson> words = new ArrayList<>();
+            for (Word word : emoji.getWords()) {
+                WordGson wordGson = getWordGson(word);
+                words.add(wordGson);
+            }
+            emojiGson.setWords(words);
+            
+            return emojiGson;
         }
     }
     
@@ -199,109 +274,50 @@ public class JavaToGsonConverter {
             return imageGson;
         }
     }
-
-    public static LetterGson getLetterGson(Letter letter) {
-        if (letter == null) {
+            
+    public static AudioGson getAudioGson(Audio audio) {
+        if (audio == null) {
             return null;
         } else {
-            LetterGson letterGson = new LetterGson();
+            AudioGson audioGson = new AudioGson();
             
-            letterGson.setId(letter.getId());
-            letterGson.setLanguage(letter.getLanguage());
-            letterGson.setTimeLastUpdate(letter.getTimeLastUpdate());
-            letterGson.setRevisionNumber(letter.getRevisionNumber());
-            letterGson.setContentStatus(letter.getContentStatus());
+            audioGson.setId(audio.getId());
+            audioGson.setLanguage(audio.getLanguage());
+            audioGson.setTimeLastUpdate(audio.getTimeLastUpdate());
+            audioGson.setRevisionNumber(audio.getRevisionNumber());
+            audioGson.setContentStatus(audio.getContentStatus());
             
-            letterGson.setText(letter.getText());
-            List<AllophoneGson> allophones = new ArrayList<>();
-            for (Allophone allophone : letter.getAllophones()) {
-                AllophoneGson allophoneGson = getAllophoneGson(allophone);
-                allophones.add(allophoneGson);
+            audioGson.setDownloadUrl("/audio/" + audio.getId() + "." + audio.getAudioFormat().toString().toLowerCase());
+            audioGson.setDownloadSize(audio.getBytes().length / 1024);
+            audioGson.setContentType(audio.getContentType());
+            audioGson.setLiteracySkills(audio.getLiteracySkills());
+            audioGson.setNumeracySkills(audio.getNumeracySkills());
+            
+            List<LetterGson> letters = new ArrayList<>();
+            for (Letter letter : audio.getLetters()) {
+                LetterGson letterGson = getLetterGson(letter);
+                letters.add(letterGson);
             }
-            letterGson.setAllophones(allophones);
-            letterGson.setUsageCount(letter.getUsageCount());
+            audioGson.setLetters(letters);
             
-            return letterGson;
-        }
-    }
-    
-    public static NumberGson getNumberGson(Number number) {
-        if (number == null) {
-            return null;
-        } else {
-            NumberGson numberGson = new NumberGson();
-            
-            numberGson.setId(number.getId());
-            numberGson.setLanguage(number.getLanguage());
-            numberGson.setTimeLastUpdate(number.getTimeLastUpdate());
-            numberGson.setRevisionNumber(number.getRevisionNumber());
-            numberGson.setContentStatus(number.getContentStatus());
-            
-            numberGson.setValue(number.getValue());
-            numberGson.setSymbol(number.getSymbol());
-            numberGson.setWord(getWordGson(number.getWord()));
+            List<NumberGson> numbers = new ArrayList<>();
+            for (Number number : audio.getNumbers()) {
+                NumberGson numberGson = getNumberGson(number);
+                numbers.add(numberGson);
+            }
+            audioGson.setNumbers(numbers);
             
             List<WordGson> words = new ArrayList<>();
-            for (Word word : number.getWords()) {
+            for (Word word : audio.getWords()) {
                 WordGson wordGson = getWordGson(word);
                 words.add(wordGson);
             }
-            numberGson.setWords(words);
+            audioGson.setWords(words);
             
-            return numberGson;
-        }
-    }
-    
-    public static SyllableGson getSyllableGson(Syllable syllable) {
-        if (syllable == null) {
-            return null;
-        } else {
-            SyllableGson syllableGson = new SyllableGson();
+            audioGson.setTranscription(audio.getTranscription());
+            audioGson.setAudioType(audio.getAudioFormat());
             
-            syllableGson.setId(syllable.getId());
-            syllableGson.setLanguage(syllable.getLanguage());
-            syllableGson.setTimeLastUpdate(syllable.getTimeLastUpdate());
-            syllableGson.setRevisionNumber(syllable.getRevisionNumber());
-            syllableGson.setContentStatus(syllable.getContentStatus());
-            
-            syllableGson.setText(syllable.getText());
-            List<AllophoneGson> allophones = new ArrayList<>();
-            for (Allophone allophone : syllable.getAllophones()) {
-                AllophoneGson allophoneGson = getAllophoneGson(allophone);
-                allophones.add(allophoneGson);
-            }
-            syllableGson.setAllophones(allophones);
-            syllableGson.setUsageCount(syllable.getUsageCount());
-            
-            return syllableGson;
-        }
-    }
-    
-    public static WordGson getWordGson(Word word) {
-        if (word == null) {
-            return null;
-        } else {
-            WordGson wordGson = new WordGson();
-            
-            wordGson.setId(word.getId());
-            wordGson.setLanguage(word.getLanguage());
-            wordGson.setTimeLastUpdate(word.getTimeLastUpdate());
-            wordGson.setRevisionNumber(word.getRevisionNumber());
-            wordGson.setContentStatus(word.getContentStatus());
-            
-            wordGson.setText(word.getText());
-            // TODO: setLetters
-            List<AllophoneGson> allophones = new ArrayList<>();
-            for (Allophone allophone : word.getAllophones()) {
-                AllophoneGson allophoneGson = getAllophoneGson(allophone);
-                allophones.add(allophoneGson);
-            }
-            wordGson.setAllophones(allophones);
-            wordGson.setUsageCount(word.getUsageCount());
-            wordGson.setWordType(word.getWordType());
-            wordGson.setSpellingConsistency(word.getSpellingConsistency());
-            
-            return wordGson;
+            return audioGson;
         }
     }
     
@@ -319,8 +335,9 @@ public class JavaToGsonConverter {
             
             storyBookGson.setTitle(storyBook.getTitle());
             storyBookGson.setDescription(storyBook.getDescription());
+            storyBookGson.setAttributionUrl(storyBook.getAttributionUrl());
             storyBookGson.setCoverImage(getImageGson(storyBook.getCoverImage()));
-            storyBookGson.setGradeLevel(storyBook.getGradeLevel());
+            storyBookGson.setReadingLevel(storyBook.getReadingLevel());
             
             return storyBookGson;
         }
@@ -333,11 +350,32 @@ public class JavaToGsonConverter {
             StoryBookChapterGson storyBookChapterGson = new StoryBookChapterGson();
             
             storyBookChapterGson.setId(storyBookChapter.getId());
-            
             storyBookChapterGson.setStoryBook(getStoryBookGson(storyBookChapter.getStoryBook()));
             storyBookChapterGson.setSortOrder(storyBookChapter.getSortOrder());
+            storyBookChapterGson.setImage(getImageGson(storyBookChapter.getImage()));
             
             return storyBookChapterGson;
+        }
+    }
+    
+    public static StoryBookParagraphGson getStoryBookParagraph(StoryBookParagraph storyBookParagraph) {
+        if (storyBookParagraph == null) {
+            return null;
+        } else {
+            StoryBookParagraphGson storyBookParagraphGson = new StoryBookParagraphGson();
+            
+            storyBookParagraphGson.setId(storyBookParagraph.getId());
+            storyBookParagraphGson.setStoryBookChapter(getStoryBookChapter(storyBookParagraph.getStoryBookChapter()));
+            storyBookParagraphGson.setSortOrder(storyBookParagraph.getSortOrder());
+            storyBookParagraphGson.setOriginalText(storyBookParagraph.getOriginalText());
+            List<WordGson> words = new ArrayList<>();
+            for (Word word : storyBookParagraph.getWords()) {
+                WordGson wordGson = getWordGson(word);
+                words.add(wordGson);
+            }
+            storyBookParagraphGson.setWords(words);
+            
+            return storyBookParagraphGson;
         }
     }
     

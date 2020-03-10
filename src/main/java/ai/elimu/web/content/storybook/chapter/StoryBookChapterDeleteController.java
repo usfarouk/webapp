@@ -1,9 +1,12 @@
 package ai.elimu.web.content.storybook.chapter;
 
 import ai.elimu.dao.StoryBookChapterDao;
+import ai.elimu.dao.StoryBookDao;
 import ai.elimu.dao.StoryBookParagraphDao;
+import ai.elimu.model.content.StoryBook;
 import ai.elimu.model.content.StoryBookChapter;
 import ai.elimu.model.content.StoryBookParagraph;
+import java.util.Calendar;
 import java.util.List;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +22,9 @@ public class StoryBookChapterDeleteController {
     private final Logger logger = Logger.getLogger(getClass());
     
     @Autowired
+    private StoryBookDao storyBookDao;
+    
+    @Autowired
     private StoryBookChapterDao storyBookChapterDao;
     
     @Autowired
@@ -31,6 +37,9 @@ public class StoryBookChapterDeleteController {
         StoryBookChapter storyBookChapter = storyBookChapterDao.read(id);
         logger.info("storyBookChapter: " + storyBookChapter);
         
+        // Delete the chapter's image (if any)
+        // TODO
+        
         // Delete the chapter's paragraphs
         List<StoryBookParagraph> storyBookParagraphs = storyBookParagraphDao.readAll(storyBookChapter);
         logger.info("storyBookParagraphs.size(): " + storyBookParagraphs.size());
@@ -40,7 +49,14 @@ public class StoryBookChapterDeleteController {
         }
         
         // Delete the chapter
+        logger.info("Deleting StoryBookChapter with ID " + storyBookChapter.getId());
         storyBookChapterDao.delete(storyBookChapter);
+        
+        // Update the StoryBook's metadata
+        StoryBook storyBook = storyBookChapter.getStoryBook();
+        storyBook.setTimeLastUpdate(Calendar.getInstance());
+        storyBook.setRevisionNumber(storyBook.getRevisionNumber() + 1);
+        storyBookDao.update(storyBook);
 
         return "redirect:/content/storybook/edit/" + storyBookId;
     }
